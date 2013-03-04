@@ -1,0 +1,149 @@
+% draft is convinient to show over/under boxes,
+% BUT it does NOT inlude graphics nor create links
+%\documentclass[a4paper,draft,pdftex]{report}
+\documentclass[a4paper,pdftex]{report}
+
+%%% NOWEB style
+\usepackage{noweb}
+% the followin nowebstyle (1) options sholud be concatenated
+% and separated by only a comma (','):
+% shift: Shift text to the left so that long code lines will not extend off
+%        the right-hand side of the page.
+% externalindex: Use an index generated with noindex(1).
+% webnumbering: Number chunks consecutively, in WEB style, instead of
+%        using sub-page numbers.
+% longxref: small paragraphs after each chunk, as in Knuth, for chunk
+%        cross-reference.
+% subscriptidents: identifiers in code, including quoted code will be
+%        subscripted with the chunk number of its definition.
+% longchunks: When expanding \nowebchunks, show page numbers of definitions
+%        and uses of each chunk.
+% smallcode: Set code in LaTeX \small font instead of \normalsize.
+\noweboptions{externalindex,webnumbering,longxref,longchunks,smallcode}
+
+
+% for index production
+\usepackage{makeidx}
+\usepackage{showidx}
+\makeindex
+
+%%\usepackage{microtype}
+\usepackage{lmodern}
+\usepackage[latin1]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% macros
+\def\[{\ifhmode\ \fi$[\mkern-2mu[$}
+\def\]{$]\mkern-2mu]$}
+\def\nw{\textsc{Noweb}}
+
+\def\thankstext{I want to thank my wife, Gilda, for the patience
+  of having looked after all kids and things while I was
+  \textit{playing} with this project. I also want to thank
+  Prof.~Reingold for his his prompt reply to all my questions.
+  Finally my gratitude goes to my parents, Alida and Mario, for the
+  sacrifice they endevoured in order to allow me get inspired by
+  Science.}
+
+\title{\textsc{Pycalcal} -- Literate Calendars in \py}
+\author{Enrico Spinielli\thanks{\thankstext}}
+
+\usepackage[pdftex]{graphicx}
+
+% hyperref must be the last package to include
+\usepackage{hyperref}
+
+\hypersetup{%
+  pageanchor=true,
+  plainpages=false,
+  pdfpagelabels,
+  pagebackref,
+  pdfdisplaydoctitle=true,
+  urlcolor=blue,
+  linktocpage,
+  a4paper=true,
+  colorlinks=true,
+  breaklinks=true,
+  pdftex,
+  pdftitle={Wonderful Maps - Literate d3js Maps},
+  pdfauthor={Enrico Spinielli},
+  pdfsubject={d3.js maps projections},
+  pdfkeywords={d3.js, projections, javascript, literate programming},
+  pdfcreator = {LaTeX with hyperref package},
+  pdfproducer = {pdfLaTeX}}
+
+
+\newcommand*{\manualmark}{%
+  \if@chapter\let\chaptermark\@gobble\fi
+  \let\sectionmark\@gobble
+  \let\subsectionmark\@gobble
+  \let\subsubsectionmark\@gobble
+  \let\paragraphmark\@gobble
+  \let\subparagraphmark\@gobble
+  \let\@mkboth\@gobbletwo
+  \@automarkfalse
+}
+
+
+%% Define a new 'leo' style for the package that will use a smaller font.
+\makeatletter
+\def\url@leostyle{%
+  \@ifundefined{selectfont}{\def\UrlFont{\sf}}{\def\UrlFont{\small\ttfamily}}}
+\makeatother
+%% Now actually use the newly defined style.
+\urlstyle{leostyle}
+
+
+\begin{document}
+\maketitle
+\cleardoublepage                %%% start again on odd page
+
+%
+% Table of Contents:
+\pagenumbering{roman}           %%% Roman page numbers for ToC
+\setcounter{page}{1}
+\pdfbookmark[1]{Contents}{toc}  %%% additional bookmark for ToC
+\thispagestyle{plain}           %%% uses the above defined fancy
+                                %%% page-header
+\tableofcontents
+\markboth{Table of Contents}{Table of Contents} %%% for the page
+                                                %%% header
+\cleardoublepage                %%% start again on odd page
+\pagenumbering{arabic}          %%% from now on Arabic page numbers
+\setcounter{page}{1}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Why}
+\label{ch:maps}
+
+This is my attempt to undertsand how
+\href{http://www.jasondavies.com}{Jason Davies} builds his marvelous
+map projections.
+I took
+\href{http://www.jasondavies.com/maps/bartholomew/}{Bartholomew's Map
+  Projection} as a reference and will comment its code here.
+
+\chapter{The code}
+\label{ch:code}
+The main HTMl file for the map projections is
+<<*>>=
+<<bartholomew_exaplained.html>>
+
+@ It is organised as follows:
+<<bartholomew_exaplained.html>>=
+<<doctype declaration>>
+<html>
+<<head info>>
+<<body info>>
+</html>
+
+@ We use HTML5, so
+<<doctype declaration>>=
+<!DOCTYPE html>
+
+@ The head information comprises the title
+<<title>>=
+@ 
+\end{document}
