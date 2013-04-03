@@ -125,7 +125,7 @@ I took
 \href{http://www.jasondavies.com/maps/bartholomew/}{Bartholomew's Map
   Projection} as a reference and will comment its code here.
 
-\chapter{The code}
+\chapter{The Scaffolding}
 \label{ch:code}
 The main HTMl file for the map projections is
 <<*>>=
@@ -139,11 +139,317 @@ The main HTMl file for the map projections is
 <<body info>>
 </html>
 
-@ We use HTML5, so
+@
+\section{Preliminaries}
+\label{sec:pre}
+We use HTML5, so
 <<doctype declaration>>=
 <!DOCTYPE html>
 
-@ The head information comprises the title
+@ The head information comprises charser, the title
+<<head info>>=
+<meta charset="utf-8">
+<title><<title>></title>
+<<style>>
+@ The title will be re-used later
 <<title>>=
+Bartholomew’s Regional Projection
+@ The CSS style allows for separation of look without embedding it in HTML (or javascript code that generates HTML) directly
+<<style>>=
+<style>
+@import url(./maps.css);
+
+.outline {
+  fill: #efbb89;
+  stroke-width: 1px;
+  stroke: #000;
+}
+
+.land {
+  fill: #c97344;
+  stroke-width: .5px;
+  stroke: #000;
+}
+
+.boundary, .graticule {
+  fill: none;
+  stroke-width: .5px;
+  stroke: #000;
+}
+
+.graticule {
+  stroke-opacity: .3;
+}
+
+.parallel {
+  fill: none;
+  stroke: #000;
+  stroke-width: .5px;
+  stroke-dasharray: 2,2;
+}
+
+#download {
+    cursor: pointer;
+    text-decoration: none;
+    color: black;
+}
+</style>
+@ 
+\section{Body}
+\label{sec:body}
+The body contains some textual description of the projection and the D3 code.
+
+Note the DIV for the map: this will be referenced by D3 code.
+<<body info>>=
+<body>
+<h1><<title>></h1>
+<a href="#" id="download">Download</a>
+<div id="map"></div>
+<<description>>
+<<d3 code>>
+</body>
+@ the description for this projections makes reference to both the great original map from Bartholomew and to the great D3 library (ok and to the Natural Earth data as well!)
+<<description>>=
+<div class="wrapper">
+  <p>The <a href="http://bl.ocks.org/3734317">equidistant conic projection</a> is used for latitudes above the <a href="http://en.wikipedia.org/wiki/Tropic_of_Cancer">Tropic of Cancer</a> (22.5°N), with an <a href="http://www.jasondavies.com/maps/bonne/">interrupted Bonne</a> elsewhere.
+  <p>Created using <a href="http://d3js.org/">D3</a>’s <a href="https://github.com/d3/d3-plugins/tree/master/geo/projection">geo.projection</a> and <a href="https://github.com/d3/d3-plugins/tree/master/geo/polyhedron">geo.polyhedron</a> plugins.
+  <h2>See Also</h2>
+  <ul>
+    <li><a href="http://www.davidrumsey.com/luna/servlet/detail/RUMSEY~8~1~225231~5505984">Bartholomew’s original</a>.
+    <li><a href="http://www.jasondavies.com/maps/bonne/">Interrupted Bonne</a>.
+  </ul>
+  <p class="cite" style="text-align: left">Data: <a href="http://www.naturalearthdata.com/downloads/50m-physical-vectors/">Natural Earth, 1:50m Physical Vectors</a>.
+</div>
+@ 
+\chapter{Map projection in D3}
+In order to use the fantastic D3 library and plugins, we need to load the relevant parts
+<<script sources>>=
+<script src="./d3.min.js?3.0.2"></script>
+<script src="./d3.geo.projection.min.js"></script>
+<script src="./d3.geo.polyhedron.js"></script>
+<script src="./maps.js"></script>
+<script src="./topojson.min.js"></script>
+@ then comes the magic details from Jason
+<<d3 code>>=
+<<script sources>>
+<script>
+<<jason the master>>
+</script>
+@ The code from Jason is structured as follows;
+<<jason the master>>=
+<<constants>>
+<<projection path>>
+<<graticule ranges>>
+<<main svg>>
+<<clipping>>
+<<parallels>>
+<<plot bartholemew>>
+<<bartholemew projection>>
+@ 
+The constants are for the Tropic of Cancer and Tropic of Capricorn
+<<constants>>=
+var π = Math.PI,
+    degrees = 180 / π,
+    radians = π / 180,
+    width = 1300,
+    height = 825,
+    ε = 1e-6,
+    φ0 = 22.5, // Tropic of Cancer
+    φ1 = 67.5; // Arctic Circle
+@ The settings for projected path, rotation, scale, translation and center, are
+<<projection path>>=
+var path = d3.geo.path().projection(bartholomew(φ0, φ1)
+      .rotate([-20, 0])
+      .scale(200)
+      .translate([width / 2, height / 2])
+      .center([0, φ0 + 5]));
+@ A constant we will need later is the pixels in the horizontal axis corresponding to the rotation of the projection
+<<projection path>>=
+var x0 = path.projection().rotate()[0];
+@ 
+While the definition for the graticule range is such that we go up to slightly above 80 degrees north.
+@ 
+<<graticule ranges>>=
+var graticule = d3.geo.graticule()
+      .majorExtent([[-180, -90], [180, 80 + ε]]);
+@ The projection function passed as argument is defined later.
+
+The link between the D3 code and the HTML document is set by selecting the DOM element where to insert the map (a special DIV with id equel to map) indide the SVG element which we append
+<<main svg>>=
+var svg = d3.select("#map").append("svg:svg")
+    .attr("width", width)
+    .attr("height", height);
+@ 
+Quite tricky is the part about clipping whereby we clip all outside the [-180, 180][-90, 90] range but we also take away the slice above 79 degrees.
+<<clipping>>=
+var defs = svg.append("defs");
+defs.append("path")
+    .datum({type: "Sphere"})
+    .attr("id", "sphere")
+    .attr("d", path);
+
+var clipPath = defs.append("clipPath").attr("id", "clip");
+clipPath.append("use").attr("xlink:href", "#sphere");
+
+// Extend clip region to make features > 80°N visible.
+clipPath.append("path")
+    .datum({type: "Polygon", coordinates: [
+      [[-180 - x0, 90], [-60 - x0, 90], [60 - x0, 90], [180 - x0, 90]].concat(
+        d3.range(180, -180, -1).map(function(x) { return [x - x0, 79]; }))
+    ]})
+    .attr("d", path);
+@ We as well use the previously defined sphere to plot the outline of the map.
+<<clipping>>=
+svg.append("use")
+    .attr("class", "outline")
+    .attr("xlink:href", "#sphere");
+@ 
+All map elements, parallels first and later land and boundaries, are grouped together using a group element (with the relevant clip path)
+<<parallels>>=
+var g = svg.append("g").attr("clip-path", "url(#clip)");
+
+g.append("path")
+    .datum(graticule)
+    .attr("class", "graticule")
+    .attr("d", path);
+
+g.selectAll("path.parallel")
+    .data([
+      d3.range(-180, 181, 1).map(function(x) { return [x - x0, 22.5]; }),
+      d3.range(-180, 181, 1).map(function(x) { return [x - x0, 67.5]; }),
+      d3.range(-180, 181, 1).map(function(x) { return [x - x0, -22.5]; }),
+      d3.range(-180, 181, 1).map(function(x) { return [x - x0, -67.5]; }),
+      [[-180, 0], [-60, 0], [60, 0], [180, 0]]
+    ])
+  .enter().append("path")
+    .datum(function(d) { return {type: "LineString", coordinates: d}; })
+    .attr("class", "parallel")
+    .attr("d", path);
+@ 
+Land and boundary are first read from topojson and then added
+<<plot bartholemew>>=
+d3.json("./world-50m.json", function(error, world) {
+  g.insert("path", ".graticule")
+      .datum(topojson.object(world, world.objects.land))
+      .attr("class", "land")
+      .attr("d", path);
+  g.insert("path", ".graticule")
+      .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
+      .attr("class", "boundary")
+      .attr("d", path);
+});
+@ 
+
+
+\chapter{Bartholemew's Projection}
+\label{ch:proj}
+
+<<bartholemew projection>>=
+function bartholomew(φ0, φ1) {
+  // First, define the shared vertices.
+  var vertices = [
+    [-180,  80],
+    [   0,  80],
+    [ 180,  80],
+
+    [-180,  φ0],
+    [ -40,  φ0],
+    [  40,  φ0],
+    [  70,  φ0],
+    [ 180,  φ0],
+
+    [ -80, -90],
+    [   0, -90],
+    [ 110, -90],
+
+    [  40,   0],
+    [  70,   0],
+  ];
+
+  // Insert 80° parallel for outline.
+  var face0 = [0],
+      i = vertices.length;
+  d3.range(-179, 0).forEach(function(x) {
+    vertices.push([x, 80]);
+    face0.push(i++);
+  })
+  face0.push(1);
+  d3.range(1, 180).forEach(function(x) {
+    vertices.push([x, 80]);
+    face0.push(i++);
+  });
+  face0.push(2);
+
+  var faces = [
+    face0.concat([7, 6, 5, 4, 3]),
+    [3, 4, 8],
+    [4, 5, 9],
+    [5, 6, 12, 11],
+    [6, 7, 10, 11, 12]
+  ].map(function(face, i) {
+    face = face.map(function(i) { return vertices[i]; });
+    return {face: face, project: (i
+        ? d3.geo.bonne().parallel(bonneParallel(φ0, φ1)).rotate([-face[2][0], 0])
+        : d3.geo.conicEquidistant().parallels([φ0, φ1])
+    ).scale(1).translate([0, 0])};
+  });
+
+  faces[0].children = faces.slice(1);
+
+  function face(λ, φ) {
+    λ *= degrees;
+    φ *= degrees;
+    return faces[
+      φ > φ0 ? 0
+      : λ < -40 ? 1
+      : λ < 40 ? 2
+      : λ < 70 ? φ >= 0 ? 3 : 4
+      : 4
+    ];
+  }
+
+  return d3.geo.polyhedron(faces[0], face, 0).precision(.1);
+}
+
+// Solve cot(φ) + φ = G, where G is taken from the equidistant conic formula.
+function bonneParallel(φ0, φ1) {
+  if (φ0 === φ1) return φ0;
+  φ0 *= radians, φ1 *= radians;
+  var ε = 1e-6,
+      cosφ0 = Math.cos(φ0),
+      G = cosφ0 * (φ1 - φ0) / (cosφ0 - Math.cos(φ1)) + φ0,
+      δ;
+  do {
+    φ0 += δ = (δ = Math.tan(φ0)) + (φ0 - G) * δ * δ;
+  } while (Math.abs(δ) > ε);
+  return φ0 * degrees;
+}
+@ 
+<<appendix>>=
+d3.select("#download")
+    .on("mouseover", writeDownloadLink);
+
+function writeDownloadLink(){
+    var html = d3.select("svg")
+        .attr("title", "svg_title")
+        .attr("version", 1.1)
+        .attr("xmlns", "http://www.w3.org/2000/svg")
+        .node().parentNode.innerHTML;
+
+    d3.select(this)
+        .attr("href-lang", "image/svg+xml")
+        .attr("href", "data:image/svg+xml;base64,\n" + btoa(html))
+        .on("mousedown", function(){
+            if(event.button != 2){
+                d3.select(this)
+                    .attr("href", null)
+                    .html("Use right click");
+            }
+        })
+        .on("mouseout", function(){
+            d3.select(this)
+                .html("Download");
+        });
+};
 @ 
 \end{document}
